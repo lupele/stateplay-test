@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+outputs/
+*.log
+
+# Local datasets and generated training artifacts must not be committed.
+/data/
+*.ckpt
+*.safetensors
+*.pth
+*.pt
+
+# Model weights are downloaded separately and must not be committed.
+/base_model/
+/examples/checkpoint/
+
+# Example videos are generated locally and must not be committed.
+/examples/generated/
+/examples/reference_outputs/
+# Local Hugging Face model card draft.
+/HF_MODEL_CARD.md
