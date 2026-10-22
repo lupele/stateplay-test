@@ -1,0 +1,8 @@
+extends: api_b_only.yaml
+reward:
+  endpoint: https://api.example.invalid/v1
+  concurrency_backend: threads
+  workers: 32
+  recover_unscored_gateway_timeouts: true
+plan:
+  api_max_conditions: 2280

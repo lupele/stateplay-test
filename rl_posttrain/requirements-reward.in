@@ -1,0 +1,11 @@
+# REWARD runtime: complete local Qwen3.5-9B, including vision and language.
+-r ../requirements.txt
+torch==2.6.0
+torchvision==0.21.0
+torchaudio==2.6.0
+transformers==5.3.0
+peft==0.18.1
+accelerate==1.3.0
+flash-linear-attention==0.4.2
+fla-core==0.4.2
+pytest==9.1.1

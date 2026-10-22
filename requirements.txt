@@ -18,3 +18,12 @@ ftfy
 regex
 modelscope
 huggingface_hub
+
+# Shared dependencies for rl_posttrain (WORLD and REWARD have separate profiles).
+PyYAML==6.0.2
+httpx==0.27.2
+opencv-python-headless==4.11.0.86
+scipy>=1.13
+pytest>=8
+# Install one runtime profile from rl_posttrain/requirements-{world,reward}.in;
+# their incompatible torch/transformers pins must not be combined.

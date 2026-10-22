@@ -1,0 +1,67 @@
+You are evaluating the absolute mechanical correctness of generated fighting-game
+videos. The input contains one initial observation, the player's action timeline,
+the NPC conditioning text, a real reference video, and four generated candidates
+named video_1, video_2, video_3, and video_4. Frames within each video are ordered
+and carry timestamps. The reference is a contextual example, not the only legal
+future. Judge every candidate independently under the same rules; do not force
+a ranking or spread the scores merely because four candidates are present.
+
+Inspect visible player and NPC health, both skill meters, and the game timer,
+as well as movement, attacks, defensive reactions, super-art events, and result
+screens. Evaluate whether actions and visible consequences form a coherent game
+sequence. NPC responses and resulting health may legitimately differ from the
+reference. Do not require pixel matching, identical hit timing, the same damage,
+or the same eventual winner. Do not use a category label or a reference's future
+HUD values as the answer for a generated candidate.
+
+Separate a super-art command or attempt from actual execution. Also separate
+execution from a hit, a block, an interruption, or a whiff. A legally executed
+super art may miss or be blocked and should still consume the appropriate stock.
+If visible resources are insufficient, a normal move, a special-move fallback,
+or no super execution can be legal. Never award a hit solely from an input macro
+or from flashy graphics. Determine meter availability using the game's visible
+stock and bar semantics; spending a stock does not necessarily empty every bar.
+Check before, during, and after the event when those moments are visible.
+
+Health should not increase during an ordinary uninterrupted round without a
+supported game event. Blocking may cause legal chip damage. Meter may grow through
+legal combat events and should decrease appropriately when a resource is spent.
+The timer generally decreases, but legal pauses, hit-stop, super effects, and a
+visible new round must be considered. A KO alone is not a win/lose result screen.
+When a result screen appears, it must be consistent with the visible round outcome;
+timer-out outcomes must be judged using the game's rule rather than requiring
+zero health. Do not invent numeric HUD readings that cannot be resolved.
+
+Brief occlusion or a missed event between the sampled frames is uncertainty,
+not proof of a violation. Reserve the highest scores for clear supporting
+evidence. Persistent unreadable or unstable HUD and incoherent motion reduce the
+confidence that the video preserves mechanics. Judge mechanics, not beauty or
+similarity to the reference. Use these absolute anchors with intermediate values:
+
+0: The candidate is unjudgeable or overwhelmingly mechanically incoherent, with
+no reliable action-to-event continuity, or pervasive impossible game states.
+25: Several major contradictions dominate the sequence, such as unsupported
+super execution, inconsistent resource consumption, unexplained health changes,
+or a result screen contradicting the visible outcome.
+50: Some action responses and state changes are coherent, but at least one clear
+major contradiction, repeated smaller contradictions, or substantial persistent
+ambiguity prevents confidence in the sequence as a valid game continuation.
+75: Actions, visible HUD evolution, and events are largely consistent; remaining
+issues are limited, local, or moderately ambiguous, with no established major
+rule violation dominating the sequence.
+100: The sequence provides clear evidence of correct action responses and legal
+visible state transitions, including any resource use and terminal outcome, with
+no observed contradictions. A quiet sequence can qualify if it is correct for
+the given conditions; spectacle and successful hits are not required.
+
+Return only a JSON object containing exactly the four keys below. Each value
+must be a finite number from 0 to 100. Include no explanation, Markdown, category,
+reasoning, or additional fields:
+{"video_1": 75, "video_2": 25, "video_3": 100, "video_4": 50}
+
+
+Verified Street Fighter III control semantics for protocol v2:
+A=light punch, Y=medium punch, X=heavy punch; B=light kick, C=medium kick, Z=heavy kick. UP/DOWN/LEFT/RIGHT are absolute screen directions.
+D is the additional high-level Super Art/macro command channel, not a seventh normal attack button. A D input indicates an attempt, not proof of execution or a hit. The released StatePlay data uses this command for state-dependent Super Art attempts: insufficient meter can yield a regular attack instead. A visible regular fallback attack or no Super Art can therefore be legal. Actual execution must have visible Super Art evidence and consistent stock consumption; whiff or block does not make execution impossible, and an input command alone must never earn hit credit.
+Each timeline interval describes one decision block. Interpret D as one macro command for that block, not one new command for every displayed video frame within the interval.
+Do not infer a specific physical combo, fixed delay, guaranteed hit, character-specific move, or guaranteed execution from D. Determine character identity, meter sufficiency, execution, hit/block/whiff/interruption, and ending state from the supplied frames, with appropriate uncertainty.

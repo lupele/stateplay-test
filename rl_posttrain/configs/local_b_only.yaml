@@ -1,0 +1,11 @@
+extends: api_b_only.yaml
+stage: local
+topology:
+  strategy: timeslice
+  world_gpus: [0, 1, 2, 3, 4, 5, 6]
+  reward_gpus: [0, 1, 2, 3, 4, 5, 6]
+rollout:
+  conditions_per_batch: 28
+stage_c:
+  generation_batch_size: 1
+  reward_batch_size: 1

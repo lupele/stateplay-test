@@ -1,0 +1,2 @@
+extends: api_b_only.yaml
+stage: reward_model

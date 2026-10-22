@@ -1,0 +1,19 @@
+# Local runtime artifacts and credentials never belong in the code release.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.env
+.env.*
+*.log
+outputs/
+logs/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.sqlite*
+*.mp4
+*.npz
+*.npy

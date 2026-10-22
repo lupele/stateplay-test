@@ -1,0 +1,3 @@
+extends: smoke.yaml
+nft:
+  mode: Both

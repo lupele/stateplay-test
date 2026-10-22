@@ -1,0 +1,110 @@
+world:
+  checkpoint: outputs/latent_world/step-4572.safetensors
+  checkpoint_sha256: 53eff9e5e59e92bb3cc7810e3ff36f9ee490be4a122a3a8ff96a4de0a03b4c5d
+  tokenizer_checkpoint: outputs/tokenizer/transition_tokenizer.pt
+  base_model: base_model
+data:
+  root: data/SF3/train/clips_5s
+  metadata: data/SF3/train/clips_5s/metadata_state_polish.csv
+  exclusion_archives:
+  - data/test_archives/StatePlay_test_100_train_ratio_v2_wins.zip
+  - data/test_archives/StatePlay_test_200_train_ratio.zip
+  exclusion_roots:
+  - data/SF3/test
+  - data/SF3/val
+  - outputs/evaluation
+plan:
+  schema: rl-plan-v1
+  seed: 20261013
+  epochs: 1
+  api_conditions: 2000
+  api_extension: 280
+  api_max_conditions: 4000
+rollout:
+  group_size: 4
+  conditions_per_batch: 28
+  height: 480
+  width: 832
+  requested_frames: 101
+  steps: 30
+  sigma_shift: 5.0
+  cfg_scale: 1.0
+  action_cfg_scale: 1.0
+  action_hold_window: 10
+  microbatch: 1
+nft:
+  mode: B-only
+  beta: 1.0
+  adv_clip: 5.0
+  std_floor: 5.0
+  normalization: global_std
+  reward_mode: mechanism_guard
+  guard_min_max: 50.0
+  guard_min_spread: 1.0
+  loss: adaptive
+  inner_epochs: 2
+  time_draws_per_visit: 1
+  full_schedule: false
+  accumulation: 4
+  transition_lr: 2.0e-05
+  coupling_lr: 0.0001
+  coupling_rank: 8
+  coupling_alpha: 16
+  coupling_dropout: 0.0
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  fm_anchor_weight: 0.1
+  transition_anchor_weight: 0.01
+  ref_velocity_weight: 0.0
+reward:
+  protocol: mechanics-reward-v1-24x832-124images
+  prompt: rl_posttrain/prompts/mechanics_reward_v1.txt
+  model: gpt-6.1-sol
+  endpoint: https://api.example.invalid/v1
+  api: chat_completions
+  frames_per_video: 24
+  max_side: 832
+  jpeg_quality: 90
+  workers: 32
+  concurrency_backend: processes
+  rpm: 30
+  tpm: 3000000
+  max_retries: 5
+  retry_budget_seconds: 1800
+  timeout_seconds: 900
+  max_completion_tokens: 8192
+  reasoning_effort: low
+  idempotency_supported: false
+reward_model:
+  base_model: base_model/Qwen/Qwen3.5-9B
+  python: outputs/rl_posttrain/_envs/reward/bin/python
+  method: json_sft
+  local_files_only: true
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  warmup_ratio: 0.05
+  epochs: 2
+  max_epochs: 3
+  accumulation: 4
+  max_length: 65536
+  max_new_tokens: 256
+  microbatch: 1
+  inference_url: http://127.0.0.1:8001
+  audit_initial_conditions: 56
+  audit_every_batches: 100
+  audit_groups: 28
+topology:
+  strategy: pending_profile
+  world_gpus:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  reward_gpus: []
+stage: reward_model

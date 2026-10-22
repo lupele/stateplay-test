@@ -1,0 +1,12 @@
+extends: legacy_api_v1.yaml
+development_smoke: true
+rollout:
+  height: 128
+  width: 224
+  requested_frames: 9
+  steps: 3
+  conditions_per_batch: 1
+nft:
+  accumulation: 4
+  inner_epochs: 3
+  reward_mode: standard
