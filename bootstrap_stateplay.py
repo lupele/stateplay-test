@@ -32,7 +32,7 @@ import urllib.parse
 import urllib.request
 
 GIT_URL = 'https://github.com/lupele/stateplay-test.git'
-GIT_COMMIT = 'f0f3a13732ca5172fb7e6ffa046a769b037b6804'
+GIT_COMMIT = '9da20eb500907a8a17fde5ca23189ab25a693f4e'
 COMPATIBLE_GIT_COMMITS = {'f0f3a13732ca5172fb7e6ffa046a769b037b6804', GIT_COMMIT}
 LEGACY_BOOTSTRAP_SHA256 = {'1c7fcc59f46262641ad7f7828bf45c5aea700098e2c41dffa70ad8e9653d8966'}
 STATE = '.stateplay_bootstrap'
