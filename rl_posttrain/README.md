@@ -118,3 +118,9 @@ have bounded retries for ENOENT/EIO/ESTALE/ETIMEDOUT. A heartbeat metadata failu
 does not orphan a live training child. Permanent absence, permission errors,
 checksum failures and quality failures still stop safely. Appends and optimizer
 updates are never blindly replayed by the storage retry helper.
+
+Runtime `--conditions-per-batch` overrides also apply when resuming Coupling-only
+or Both. The saved module-selection configuration and checkpoint stay immutable;
+only subsequent rollout reservations use the requested size. A reserved batch
+keeps its original conditions. Changing GPU count during a partially updated
+batch is refused; finish that batch on its original topology first.

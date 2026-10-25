@@ -47,6 +47,8 @@ def prepare_mode(config,run,mode='B-only'):
     """
     if mode not in MODES:raise ValueError('Unknown C update mode: '+str(mode))
     run=Path(run)
+    requested_conditions=config['rollout']['conditions_per_batch']
+    if requested_conditions<1:raise ValueError('conditions_per_batch must be positive')
     with lock(run/'plan/.module_switch.lock'):
         pending=run/'plan/C_module_selection.json'
         selection=read_json(pending) if shared_exists(pending,retry_missing=False) else None
@@ -63,6 +65,13 @@ def prepare_mode(config,run,mode='B-only'):
             if config['nft']['mode']!=mode:raise ValueError('Existing C configuration uses another mode; progress preserved')
             if selection and selection.get('status')!='complete':
                 write_json(pending,dict(selection,status='complete'))
+            # The saved selection fixes model/algorithm identity, not the
+            # runtime rollout buffer size. Preserve the requested batch count
+            # without rewriting the selection or checkpoint. In-flight ledger
+            # reservations retain their original size until committed.
+            config=copy.deepcopy(config)
+            config['rollout']['conditions_per_batch']=requested_conditions
+            config['config_hash']=digest({k:v for k,v in config.items() if k!='config_hash'})
             return config
         if config['nft']['mode']==mode and mode=='B-only':
             # Legacy/default B-only resumes A directly, including its optimizer.

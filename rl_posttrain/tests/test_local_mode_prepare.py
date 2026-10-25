@@ -56,3 +56,42 @@ def test_interrupted_preparation_reuses_checkpoint_without_reset(tmp_path,monkey
     monkeypatch.setattr(pm,'write_json',original)
     assert pm.prepare_mode(c,run,'Both')['nft']['mode']=='Both'
     assert sha256(cp)==before and (run/'plan/cursor.json').read_bytes()==ledger
+
+
+@pytest.mark.parametrize('mode',['Coupling-only','Both'])
+@pytest.mark.parametrize('new_batch',[28,32,64])
+def test_resume_runtime_batch_override_keeps_saved_policy_and_ledger(tmp_path,monkeypatch,mode,new_batch):
+    from rl_posttrain.adapters.parameter_modes import configure,optimizer
+    from rl_posttrain.adapters.mode_switch import apply_A_live
+    from rl_posttrain.adapters.checkpoint import load
+    from rl_posttrain.algorithms.policy_bank import PolicyBank
+    from rl_posttrain.tests.test_mode_switch import Toy
+    run,c,_=setup_run(tmp_path,monkeypatch)
+    chosen=pm.prepare_mode(c,run,mode)
+    pointer=run/'world/local/checkpoints/latest.json';cp=Path(read_json(pointer)['checkpoint'])
+    cp_sha=sha256(cp);ledger=run/'plan/cursor.json';ledger_before=ledger.read_bytes()
+    selection=run/'plan/C_module_selection.json';selection_before=selection.read_bytes()
+    saved_config=Path(read_json(selection)['config']);config_before=saved_config.read_bytes()
+    request=copy.deepcopy(c);request['rollout']['conditions_per_batch']=new_batch
+    monkeypatch.setattr(pm,'initialize_lora',lambda _:(_ for _ in ()).throw(AssertionError('Existing parameters reinitialized')))
+    resumed=pm.prepare_mode(request,run,mode)
+    assert resumed['rollout']['conditions_per_batch']==new_batch
+    assert resumed['config_hash']==digest({k:v for k,v in resumed.items() if k!='config_hash'})
+    assert {k:v for k,v in resumed.items() if k not in ('rollout','config_hash')}=={k:v for k,v in chosen.items() if k not in ('rollout','config_hash')}
+    assert ledger.read_bytes()==ledger_before and selection.read_bytes()==selection_before
+    assert saved_config.read_bytes()==config_before and sha256(cp)==cp_sha
+    model=Toy();configure(model,mode,rank=2);apply_A_live(model,resumed)
+    opt=optimizer(model,resumed['nft']);bank=PolicyBank(model)
+    state=load(cp,model,opt,bank,resumed,restore_random=False)
+    assert state['optimizer_step']==7
+
+
+@pytest.mark.parametrize('conditions,expected',[ (28,[64,48]*2),(32,[64]*4),(64,[64]*8),(8,[32]*2)])
+def test_sixteen_rank_schedule_visits_every_video_once_per_inner_epoch(conditions,expected):
+    from rl_posttrain.train_world import schedule
+    c={'nft':{'accumulation':4,'inner_epochs':2,'full_schedule':False,'time_draws_per_visit':1},'plan':{'seed':3},'rollout':{'steps':30}}
+    samples=list(range(conditions*4));windows=schedule(samples,c,16,batch=9)
+    assert [w['valid'] for w in windows]==expected
+    for inner in range(2):
+        visits=[v[0] for w in windows for v in w['visits'] if v is not None and v[1]==inner]
+        assert sorted(visits)==samples
