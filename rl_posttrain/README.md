@@ -82,3 +82,39 @@ outputs/rl_posttrain/_envs/world/bin/python -m rl_posttrain.export_checkpoint --
 Unit tests use small CPU fixtures and mocked HTTP. Real-model smoke checks are separate and must use an isolated run/output directory. The full multimodal reward model, gradients, saving/reloading, and the real three-stage chain require the model files and GPUs above.
 
 The NFT implementation follows official commit `cbb14f84b8312b620390dfcbe2fab69c1383b104`. Wan's decreasing sigma convention, clean first-frame masking, selected-parameter policy snapshots, EMA, and the optional SFT anchors are implemented in `algorithms/` and `train_world.py`.
+
+### Stage C trainable modules and storage recovery
+
+`launch_local` and the generated `start_c.sh` accept `--update-mode B-only`,
+`--update-mode Coupling-only`, or `--update-mode Both` (`--train-mode` is an alias).
+The default remains **B-only**. Existing GPU, global condition batch, generation
+batch, reward batch, and progress bar options are unchanged.
+
+```bash
+bash stateplay/.stateplay_bootstrap/launch/start_c.sh \
+  --gpus 4,5,6,7 --conditions-per-batch 28 \
+  --generation-batch-size 1 --reward-batch-size 1 \
+  --update-mode Coupling-only
+```
+
+Select modules before the first C reservation. The initializer preserves the
+completed A model, its original old/ref policies, RNG and one-pass ledger; it
+creates fresh Adam moments only for newly trainable Coupling LoRA parameters.
+Frozen A transition parameters are stored in C checkpoints and included during
+inference export. Resume with the same mode; changing an existing C branch is
+refused. A conditions are excluded from C rollouts; the existing anchor sampler
+and all reward/quality gates remain unchanged.
+
+The standalone `bootstrap_stateplay.py` is now included at repository root.
+Replace the older external bootstrap with this version before running the same
+`--prepare-only` command. Recognized clean older checkouts can fast-forward;
+modified or divergent checkouts are preserved. Previously prepared data,
+checkpoints and cursors are retained, and a recognized old installed bootstrap
+is backed up before refreshing its copy. `check.sh` still reports genuine
+acceptance/quality blockers; this update does not manufacture passing gates.
+
+Shared-storage path resolution, required-file checks and atomic JSON writes now
+have bounded retries for ENOENT/EIO/ESTALE/ETIMEDOUT. A heartbeat metadata failure
+does not orphan a live training child. Permanent absence, permission errors,
+checksum failures and quality failures still stop safely. Appends and optimizer
+updates are never blindly replayed by the storage retry helper.

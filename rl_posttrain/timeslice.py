@@ -137,15 +137,20 @@ def execute_phase(cmd,run,phase,batch,gpus,dashboard):
 
 def run(a):
     run=run_path(a.run_id);original=load_config(a.config)
+    if not a.dry_run:
+        from .prepare_local_mode import prepare_mode
+        original=prepare_mode(original,run,a.update_mode)
     gpus=a.gpus
     if gpus is None and os.environ.get('CUDA_VISIBLE_DEVICES'):gpus=gpu_ids(os.environ['CUDA_VISIBLE_DEVICES'])
     if gpus is None:gpus=sorted(set(original['topology']['world_gpus']+original['topology']['reward_gpus']))
-    c=runtime_config(original,gpus,a.generation_batch_size,a.reward_batch_size);validate(c,a.run_id)
+    c=runtime_config(original,gpus,a.generation_batch_size,a.reward_batch_size)
+    if a.dry_run:c['nft']['mode']=a.update_mode
+    validate(c,a.run_id)
     if a.smoke and a.run_id=='study_v1':raise ValueError('Software smoke must use an isolated run, never study_v1')
     if a.dry_run:
         print(json.dumps({'gpus':gpus,'generation_batch_size':c['stage_c']['generation_batch_size'],
             'reward_batch_size':c['stage_c']['reward_batch_size'],'conditions_per_batch':c['rollout']['conditions_per_batch'],
-            'epochs':c['plan']['epochs'],'A_plus_C_one_pass':True,'formal_training_started':False},indent=2));return
+            'update_mode':c['nft']['mode'],'epochs':c['plan']['epochs'],'A_plus_C_one_pass':True,'formal_training_started':False},indent=2));return
     if not a.smoke:
         from .train_world import formal_gate
         formal_gate(run,'local')
@@ -201,6 +206,7 @@ def parser():
     p.add_argument('--gpus',type=gpu_ids,help='Physical GPU IDs, e.g. 0,1,2,3; every phase uses the same list')
     p.add_argument('--generation-batch-size',type=int,help='Simultaneous candidates of one condition per GPU, 1..4')
     p.add_argument('--reward-batch-size',type=int,help='Complete 124-image scoring requests per GPU batch')
+    p.add_argument('--update-mode','--train-mode',dest='update_mode',choices=['B-only','Coupling-only','Both'],default='B-only',help='C trainable modules; default B-only; changing existing C progress is refused')
     p.add_argument('--dry-run',action='store_true');p.add_argument('--stop-after-phase',choices=['generate','score','update'])
     return p
 

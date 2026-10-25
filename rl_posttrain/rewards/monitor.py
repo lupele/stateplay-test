@@ -1,5 +1,5 @@
 import numpy as np
-from ..io import write_json,read_json
+from ..io import write_json,read_json,shared_exists
 
 def audit_metrics(teacher,student):
     t=np.asarray(teacher);s=np.asarray(student)
@@ -12,7 +12,7 @@ def audit_metrics(teacher,student):
     return {"mae":float(np.abs(t-s).mean()),"pair_agreement":float(np.mean(pairs)) if pairs else None,"valid_pairs":len(pairs)}
 
 def record_audit(path,teacher,student):
-    state=read_json(path) if path.exists() else {"windows":[],"consecutive_bad":0,"paused":False}
+    state=read_json(path) if shared_exists(path) else {"windows":[],"consecutive_bad":0,"paused":False}
     metrics=audit_metrics(teacher,student)
     bad=metrics["mae"]>15 or (metrics["pair_agreement"] is not None and metrics["pair_agreement"]<.65)
     state["consecutive_bad"]=state["consecutive_bad"]+1 if bad else 0
@@ -27,7 +27,7 @@ def audit_count(state,ledger,config,batch_length):
     return 0
 
 def append_audit(path,groups,teacher,student,initial_limit=56,window_size=28):
-    state=read_json(path) if path.exists() else {"windows":[],"consecutive_bad":0,"paused":False,"pending":[],"initial_seen":0}
+    state=read_json(path) if shared_exists(path) else {"windows":[],"consecutive_bad":0,"paused":False,"pending":[],"initial_seen":0}
     state.setdefault("pending",[]);state.setdefault("initial_seen",0)
     seen=set(state.get("seen_groups",[]))
     for group,t,s in zip(groups,teacher,student):

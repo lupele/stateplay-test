@@ -15,6 +15,10 @@ def main():
     checkpoint=torch.load(a.checkpoint,map_location="cpu",weights_only=False)
     if checkpoint["sft_sha256"]!=SFT_SHA or sha256(SFT)!=SFT_SHA:raise ValueError("Original implicit SFT identity mismatch")
     state=load_file(str(SFT));live=checkpoint["live"];config=checkpoint["config"];merged=[]
+    for name,value in checkpoint.get('frozen_overrides',{}).items():
+        if not name.startswith('latent_state_rollout.transition.') or name not in state:
+            raise ValueError('Unexpected frozen A-stage export tensor')
+        state[name]=value.to(state[name].dtype)
     # SFT logger omitted frozen patch embedding. Include its exact Wan base
     # tensors so the export is a complete inference DiT rather than an overlay.
     base=Path(config['world']['base_model'])/'Wan-AI/Wan2.2-TI2V-5B';added=[]

@@ -10,7 +10,7 @@ import time
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
-from safetensors.torch import load_file
+from .io import load_tensors as load_file,shared_exists
 from .config import load_config,validate
 from .io import run_path,read_json,write_json,append_jsonl,lock,digest,reward_path,publish_link,reward_checkpoint,world_checkpoint
 from .data.conditions import catalog,prepare_group,complete_protocol
@@ -61,31 +61,31 @@ def schedule(samples,config,world_size,batch):
 
 def formal_gate(run,stage):
     gate_path=run/"reports/integration_gate.json"
-    if not gate_path.exists() or not read_json(gate_path).get("passed"):raise RuntimeError("Formal launch requires a passing integration_gate.json")
+    if not shared_exists(gate_path) or not read_json(gate_path).get("passed"):raise RuntimeError("Formal launch requires a passing integration_gate.json")
     gate=read_json(gate_path)
     from .io import ROOT,sha256
     for path,expected in gate.get("source_code_hashes",{}).items():
-        if not (ROOT/path).is_file() or sha256(ROOT/path)!=expected:raise RuntimeError("RL source changed after acceptance; rerun the integration gate")
+        if not shared_exists(ROOT/path,file_only=True) or sha256(ROOT/path)!=expected:raise RuntimeError("RL source changed after acceptance; rerun the integration gate")
     for path,expected in gate.get('runtime_artifact_hashes',{}).items():
-        if not (ROOT/path).is_file() or sha256(ROOT/path)!=expected:raise RuntimeError('RL configuration/prompt/script changed after acceptance')
+        if not shared_exists(ROOT/path,file_only=True) or sha256(ROOT/path)!=expected:raise RuntimeError('RL configuration/prompt/script changed after acceptance')
     for path,expected in gate.get('protected_model_files',{}).items():
         full=ROOT/path
-        if not full.is_file():raise RuntimeError('Accepted source model file is missing: '+path)
+        if not shared_exists(full,file_only=True):raise RuntimeError('Accepted source model file is missing: '+path)
         stat=full.stat()
         if stat.st_size!=expected['size'] or stat.st_mtime_ns!=expected['mtime_ns']:raise RuntimeError('Accepted source model file changed; rerun complete source hash verification: '+path)
     if stage=="local":
         from .formal import stage_c_control
         if stage_c_control(run) is not None:raise RuntimeError('User requested stop after Stage B; Stage C is disabled')
         q=reward_path(run)/"reports/quality_gate.json"
-        if not q.exists() or not read_json(q).get("passed"):raise RuntimeError("Formal C requires an independently passing reward quality gate")
+        if not shared_exists(q) or not read_json(q).get("passed"):raise RuntimeError("Formal C requires an independently passing reward quality gate")
         manifest=read_json(reward_checkpoint(run)/'manifest.json')
         if manifest.get('smoke') or read_json(q).get('version')!=manifest['version']:raise RuntimeError('Formal C needs the version-matched, non-smoke reward model')
         from .io import QWEN
         if Path(manifest['base_model']).resolve()!=QWEN.resolve():raise RuntimeError('Formal C reward base identity differs')
         profile=run/"reports/joint_profile.json"
         sequential=run/'reports/C_timeslice_acceptance.json'
-        measured=(profile.exists() and read_json(profile).get('selected_topology'))
-        sequential_verified=(sequential.exists() and read_json(sequential).get('passed'))
+        measured=(shared_exists(profile) and read_json(profile).get('selected_topology'))
+        sequential_verified=(shared_exists(sequential) and read_json(sequential).get('passed'))
         if not measured and not sequential_verified:raise RuntimeError("Formal C topology must be measured")
 
 def train(args,stage="api"):
@@ -111,7 +111,7 @@ def train(args,stage="api"):
     frozen_baseline=parameter_hash(adapter.dit,True) if args.max_conditions is not None else None
     state={"optimizer_step":0,"batch_id":0,"update_cursor":0,"batch_done":True,"stage":stage,"smoke":args.smoke}
     latest=run/"world"/stage/"checkpoints/latest.json"
-    checkpoint=Path(args.resume) if args.resume else Path(read_json(latest)["checkpoint"]) if latest.exists() else None
+    checkpoint=Path(args.resume) if args.resume else Path(read_json(latest)["checkpoint"]) if shared_exists(latest) else None
     if stage=="local" and checkpoint is None:checkpoint=world_checkpoint(run,'api')
     if checkpoint:
         state=load(checkpoint,adapter.dit,opt,bank,c,rank)

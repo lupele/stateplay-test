@@ -1,6 +1,6 @@
 import collections
 import random
-from ..io import lock, read_json, write_json, digest
+from ..io import lock, read_json, write_json, digest, resolve_shared, shared_exists
 
 def stratified_order(records, seed):
     """Proportional deficit interleaving; every real record appears exactly once."""
@@ -17,10 +17,11 @@ def stratified_order(records, seed):
 class Ledger:
     """Reservation remains in-flight until its optimizer checkpoint is committed."""
     def __init__(self, root, records=None, seed=20261013):
+        root=resolve_shared(root)
         self.root = root; root.mkdir(parents=True, exist_ok=True)
         self.path = root / "cursor.json"; self.order_path = root / "epoch_order.json"
         with lock(root / ".ledger.lock"):
-            if not self.order_path.exists():
+            if not shared_exists(self.order_path):
                 if records is None: raise FileNotFoundError("Initialize plan with eligible records")
                 order = stratified_order(records, seed)
                 write_json(self.order_path, {"schema": "rl-plan-v1", "seed": seed, "order": order, "order_hash": digest(order)})

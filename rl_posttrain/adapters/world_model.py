@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from accelerate import init_empty_weights
 from safetensors import safe_open
-from safetensors.torch import load_file
+from ..io import load_tensors as load_file
 from PIL import Image
 from diffsynth.models.stateplay_dit import StatePlayModel
 from diffsynth.models.latent_state import GameTransitionTokenizer
@@ -40,6 +40,9 @@ def reconstruct(config,device="cuda:0"):
     for key in tok.state_dict():sources["transition_tokenizer."+key]="stage1_tokenizer_checkpoint"
     dit=dit.to(device=device,dtype=torch.bfloat16).eval()
     names=configure(dit,config["nft"]["mode"],config["nft"]["coupling_rank"],config["nft"]["coupling_alpha"],config["nft"]["coupling_dropout"])
+    if config.get('mode_switch'):
+        from .mode_switch import apply_A_live
+        apply_A_live(dit,config)
     return dit,{"missing_keys":[],"unexpected_keys":[],"key_sources":sources,"trainable_names":names,"trainable_count":sum(p.numel() for p in dit.parameters() if p.requires_grad),"num_layers":len(dit.blocks),"gates":[float(b.latent_state_attention.gate) for b in dit.blocks]}
 
 class WorldForward(nn.Module):

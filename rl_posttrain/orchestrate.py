@@ -22,14 +22,19 @@ def execute(command,run,name,gpus=None,allow_failure=False):
         try:tick=Path(f'/proc/{process.pid}/stat').read_text().rsplit(')',1)[1].split()[19]
         except FileNotFoundError:tick=None
         info={'pid':process.pid,'start_tick':tick,'command':command,'active':True,'started_at':now(),'gpus':gpus}
-        write_json(record,info)
+        def persist_info():
+            try:write_json(record,info)
+            except OSError as error:
+                # Preserve child ownership in this process while NFS is down.
+                print('Supervisor metadata write delayed:',type(error).__name__,flush=True)
+        persist_info()
         while True:
             try:
                 code=process.wait(timeout=15)
                 break
             except subprocess.TimeoutExpired:
-                info['heartbeat_at']=now();write_json(record,info)
-        info.update(active=False,returncode=code,finished_at=now());write_json(record,info)
+                info['heartbeat_at']=now();persist_info()
+        info.update(active=False,returncode=code,finished_at=now());persist_info()
     if code and not allow_failure:raise RuntimeError(f"{name} failed; see {run/'logs'/(name+'.log')}")
     return code
 
