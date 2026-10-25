@@ -34,7 +34,7 @@ import urllib.request
 GIT_URL = 'https://github.com/lupele/stateplay-test.git'
 GIT_COMMIT = '9da20eb500907a8a17fde5ca23189ab25a693f4e'
 COMPATIBLE_GIT_COMMITS = {'f0f3a13732ca5172fb7e6ffa046a769b037b6804', GIT_COMMIT}
-LEGACY_BOOTSTRAP_SHA256 = {'1c7fcc59f46262641ad7f7828bf45c5aea700098e2c41dffa70ad8e9653d8966'}
+LEGACY_BOOTSTRAP_SHA256 = {'1c7fcc59f46262641ad7f7828bf45c5aea700098e2c41dffa70ad8e9653d8966', '54d8b3988916a3939d1ef879622666dcb2df09c37e38eeccc1ff97e4b2dcabb9', '67e0f08fdd3e1ff230e622a9d39fd538b491e0ce35d24011eb003c29642f3e46'}
 STATE = '.stateplay_bootstrap'
 RUN = 'outputs/rl_posttrain/study_v1'
 OLD_ROOT = '/private/StatePlay-main'
@@ -415,10 +415,19 @@ def finish_clone(root, attempts, backoff):
             raise RuntimeError('Tracked checkout files changed; preserved. Commit/copy your edits before upgrading.')
         current=head.stdout.strip()
         if current==GIT_COMMIT:return
-        # A later bootstrap-only commit can safely share the exact RL sources.
-        ancestor=git(root,'merge-base','--is-ancestor',GIT_COMMIT,'HEAD',check=False)
-        same=git(root,'diff',GIT_COMMIT,'HEAD','--quiet','--','rl_posttrain','requirements.txt',check=False)
-        if ancestor.returncode==0 and same.returncode==0:return
+        # A shallow HEAD may omit its pinned code parent. Fetch the object
+        # without moving HEAD, then compare the complete source tree except
+        # this delivery script. A bootstrap-only release is compatible even
+        # when shallow history prevents merge-base from seeing ancestry.
+        present=git(root,'cat-file','-e',GIT_COMMIT+'^{commit}',check=False)
+        if present.returncode:
+            for attempt in range(attempts):
+                fetched=git(root,'fetch','--depth=1','origin',GIT_COMMIT,check=False)
+                if fetched.returncode==0:break
+                if attempt+1==attempts:raise RuntimeError('Pinned code lookup failed after bounded retries')
+                time.sleep(min(30,backoff*2**min(attempt,5)))
+        same=git(root,'diff',GIT_COMMIT,'HEAD','--quiet','--','.',':(exclude)bootstrap_stateplay.py',check=False)
+        if same.returncode==0:return
         if current not in COMPATIBLE_GIT_COMMITS:
             raise RuntimeError('Existing checkout is not a recognized compatible release; preserved')
     # Interrupted first fetch/check-out can safely continue without a hard reset.
